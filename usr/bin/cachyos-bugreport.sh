@@ -78,47 +78,7 @@ cmdline: $(cat /proc/cmdline)
 ____________________________________________
 Getting Hardware Information
 
-### CPU
-$(lscpu)
-
-### Memory
-$(lsmem)
-
-### Memory information
-$(cat /proc/meminfo)
-
-### Swap
-$(swapon --show)
-$(cat /proc/swaps)
-
-### PCI devices and drivers
-$(lspci -nnk)
-
-### USB devices
-$(lsusb)
-
-### Block devices
-$(lsblk -e7 -o NAME,PATH,TYPE,SIZE,FSTYPE,FSVER,MOUNTPOINTS,MODEL,TRAN,ROTA)
-
-### DMI / motherboard / BIOS
-DMI BIOS vendor: $(cat /sys/class/dmi/id/bios_vendor 2>/dev/null || echo "N/A")
-DMI BIOS version: $(cat /sys/class/dmi/id/bios_version 2>/dev/null || echo "N/A")
-DMI BIOS date: $(cat /sys/class/dmi/id/bios_date 2>/dev/null || echo "N/A")
-DMI board vendor: $(cat /sys/class/dmi/id/board_vendor 2>/dev/null || echo "N/A")
-DMI board name: $(cat /sys/class/dmi/id/board_name 2>/dev/null || echo "N/A")
-DMI board version: $(cat /sys/class/dmi/id/board_version 2>/dev/null || echo "N/A")
-DMI product name: $(cat /sys/class/dmi/id/product_name 2>/dev/null || echo "N/A")
-DMI product version: $(cat /sys/class/dmi/id/product_version 2>/dev/null || echo "N/A")
-
-### Kernel modules
-$(lsmod)
-
-### Network interfaces
-$(ip -br link show)
-
-### GPU / DRM
-$(find /sys/class/drm -maxdepth 1 -type l -printf '%f\n' 2>/dev/null | sort)
-
+$(inxi -Farz)
 ____________________________________________
 Getting Scheduler information
 
