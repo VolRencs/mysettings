@@ -78,7 +78,48 @@ cmdline: $(cat /proc/cmdline)
 ____________________________________________
 Getting Hardware Information
 
-$(inxi -Farz)
+### CPU
+$(lscpu)
+
+### Memory
+$(lsmem)
+$(free -h)
+
+### Swap
+$(swapon --show)
+$(cat /proc/swaps)
+
+### PCI devices and drivers
+$(lspci -nnk)
+
+### USB devices
+$(lsusb)
+
+### Block devices
+$(lsblk -e7 -o NAME,PATH,TYPE,SIZE,FSTYPE,FSVER,MOUNTPOINTS,MODEL,TRAN,ROTA)
+
+### DMI / motherboard / BIOS
+DMI BIOS vendor: $(cat /sys/class/dmi/id/bios_vendor 2>/dev/null || echo "N/A")
+DMI BIOS version: $(cat /sys/class/dmi/id/bios_version 2>/dev/null || echo "N/A")
+DMI BIOS date: $(cat /sys/class/dmi/id/bios_date 2>/dev/null || echo "N/A")
+DMI board vendor: $(cat /sys/class/dmi/id/board_vendor 2>/dev/null || echo "N/A")
+DMI board name: $(cat /sys/class/dmi/id/board_name 2>/dev/null || echo "N/A")
+DMI board version: $(cat /sys/class/dmi/id/board_version 2>/dev/null || echo "N/A")
+DMI product name: $(cat /sys/class/dmi/id/product_name 2>/dev/null || echo "N/A")
+DMI product version: $(cat /sys/class/dmi/id/product_version 2>/dev/null || echo "N/A")
+
+### Kernel modules
+$(lsmod)
+
+### Network interfaces
+$(ip -details link show)
+
+### Network addresses
+$(ip -details address show)
+
+### GPU / DRM
+$(find /sys/class/drm -maxdepth 1 -type l -printf '%f\n' 2>/dev/null | sort)
+
 ____________________________________________
 Getting Scheduler information
 
@@ -101,6 +142,7 @@ ____________________________________________
 journalctl of previous boot
 
 $(journalctl -b -1 -p 4..1 2>/dev/null || echo "No previous boot log available")
+
 ____________________________________________
 
 Installed packages
@@ -108,41 +150,6 @@ Installed packages
 $(get_installed_packages)
 --------------------------------------------
 EOF
-}
-
-redact() {
-    echo "Redacting personal information..."
-
-    local sed_args=()
-
-    # Escape a literal string for use in a sed pattern (] must be first in class)
-    sed_escape() { printf '%s\n' "$1" | sed 's/[][\\.^$*|]/\\&/g'; }
-
-    # Redact hostname (appears in uname, dmesg, journalctl)
-    local hn
-    hn=$(hostname)
-    sed_args+=(-e "s|$(sed_escape "$hn")|<hostname-redacted>|g")
-
-    # Redact real username and home directory (SUDO_USER is set when run via sudo)
-    local real_user="${SUDO_USER:-}"
-    if [ -n "$real_user" ] && [ "$real_user" != "root" ]; then
-        local escaped_user
-        escaped_user=$(sed_escape "$real_user")
-        sed_args+=(-e "s|/home/${escaped_user}|<home-dir-redacted>|g")
-        sed_args+=(-e "s|${escaped_user}|<username-redacted>|g")
-    fi
-
-    # Redact IPv4 addresses (inxi -z handles its own output; this covers dmesg/journal)
-    sed_args+=(-e 's/\b\([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\}\b/<ipv4-redacted>/g')
-
-    # Redact MAC addresses (fallback for anything inxi -z may have missed)
-    sed_args+=(-e 's/\b\([0-9a-fA-F]\{2\}:\)\{5\}[0-9a-fA-F]\{2\}\b/<mac-address-redacted>/g')
-
-    # Redact email addresses
-    sed_args+=(-e 's/[a-zA-Z0-9._%+-]\+@[a-zA-Z0-9.-]\+\.[a-zA-Z]\{2,\}/<email-address-redacted>/g')
-
-    # Single sed pass for all substitutions
-    sed -i "${sed_args[@]}" "$LOG_FILENAME"
 }
 
 upload() {
