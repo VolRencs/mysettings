@@ -83,7 +83,9 @@ $(lscpu)
 
 ### Memory
 $(lsmem)
-$(free -h)
+
+### Memory information
+$(cat /proc/meminfo)
 
 ### Swap
 $(swapon --show)
@@ -159,7 +161,7 @@ redact() {
 
     # Redact hostname (appears in uname, dmesg, journalctl)
     local hn
-    hn=$(hostname)
+    hn=$(cat /proc/sys/kernel/hostname)
     sed_args+=(-e "s|$(sed_escape "$hn")|<hostname-redacted>|g")
 
     # Redact real username and home directory (SUDO_USER is set when run via sudo)
