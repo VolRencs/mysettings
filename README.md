@@ -55,7 +55,6 @@
   `user.conf.d/10-limits.conf`: `1024:1048576`
 * `timesyncd.conf.d/10-timesyncd.conf`: `time.cloudflare.com` + fallback NTP
 * `user@.service.d/delegate.conf`: делегирование `cpu cpuset io memory pids`
-* `rtkit-daemon.service.d/override.conf`: `LogLevelMax=info`
 
 ## tmpfiles (`usr/lib/tmpfiles.d/`)
 
@@ -81,7 +80,8 @@
 
 Правила/файлы, не относящиеся к этому железу: Wi-Fi regdomain (`iw-set-regdomain`),
 управление питанием `snd-hda-intel`, `hdparm`-правила для HDD, `pci-latency`,
-GNOME/touchpad-настройки, AMD GPU, `game-performance`/`topmem`/`zink-run`/`dlss-swapper`.
+GNOME/touchpad-настройки, AMD GPU, `game-performance`/`topmem`/`zink-run`/`dlss-swapper`,
+`rtkit-daemon` override (rtkit не установлен — PipeWire использует RT через `limits.d`).
 
 ## Установка
 
