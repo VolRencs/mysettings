@@ -1,50 +1,94 @@
-## Core System Optimizations
+# mysettings
 
-### ⚙️ Udev Rules: Device Event Automation
-Udev rules automatically apply system configurations upon device detection or state changes.
-* **Audio Power Management**: Manages `snd-hda-intel` power saving to mitigate audio crackling, disabling it when AC-powered and re-enabling on battery.
-* **ZRAM Swap Optimization**: Configures ZRAM to prefer anonymous page compression (`vm.swappiness=150`) and disables Zswap for efficient RAM-based swap.
-* **Device Permissions**: Sets `rtc0` and `hpet` device group to "audio" for proper application access.
-* **SATA Performance**: Configures SATA host link power management to `max_performance`.
-* **I/O Scheduler Assignment**: Dynamically assigns optimal I/O schedulers: `bfq` for HDDs, `adios` for SATA SSDs, and `adios` for NVMe SSDs.
-* **HDD Performance Tuning**: Applies `hdparm` settings (`-B 254 -S 0`) to rotational disks.
-* **NVIDIA Runtime Power Management**: Enables/disables NVIDIA GPU runtime power management on driver bind/unbind events.
-* **CPU DMA Latency Access**: Sets permissions for the `cpu_dma_latency` device.
+Персональный набор настроек CachyOS под конкретную машину:
 
-### 🚀 Sysctl: Kernel Runtime Configuration
-Sysctl parameters modify kernel behavior at runtime for system-wide performance and stability.
-* **Memory & I/O Management**: Adjusts `vm.swappiness`, `vfs_cache_pressure`, `dirty_bytes`, `dirty_background_bytes`, and `dirty_writeback_centisecs` for balanced memory usage and efficient disk I/O. Disables `vm.page-cluster`.
-* **System Stability & Security**: Disables `kernel.nmi_watchdog`, enables `kernel.unprivileged_userns_clone`, restricts `kernel.kptr_restrict`, and disables `kernel.kexec_load_disabled`.
-* **Logging & Network**: Configures `kernel.printk` to hide messages from console, increases `net.core.netdev_max_backlog`, and sets `fs.file-max`.
+* **Плата**: HUANANZHI X99-8M-F (Intel C220/B85), desktop, без батареи
+* **CPU**: Intel Xeon E5-2660 v3 (Haswell-EP, AVX2 → репозиторий `cachyos-v3`)
+* **RAM**: 31 GiB, swap только ZRAM (zstd, размер = RAM, priority 100), `zswap.enabled=0`
+* **GPU**: NVIDIA GTX 1660 Ti (Turing), `linux-cachyos-nvidia-open`
+* **Диски**: 2× SATA SSD (HDD/NVMe нет)
+* **Звук**: USB-аудио C-Media (PipeWire/WirePlumber), встроенный HDA не используется
+* **Сеть**: Realtek RTL8111 (Ethernet), Wi-Fi нет
+* **Прочее**: KDE Plasma, Secure Boot (user), `nowatchdog` в cmdline
 
-### 🔧 Modprobe: Kernel Module Parameters
-Modprobe configurations control module loading and behavior for hardware-specific optimizations.
-* **Audio Power Saving**: Explicitly disables `snd-hda-intel` module power saving.
-* **Watchdog Module Blacklist**: Prevents loading of Intel TCO and AMD SP5100 watchdog timers.
-* **NVIDIA Driver Optimizations**: Applies parameters like `NVreg_UsePageAttributeTable=1` (PAT for CPU performance), `NVreg_InitializeSystemMemoryAllocations=0` (disables memory clearing for GPU).
+Собирается в пакет `mysettings`.
 
-### ⏱️ Systemd: Service & System Management
-Systemd unit and configuration files for streamlined boot, resource management, and service control.
-* **Journal Log Limits**: Sets `journald` size limit to 50MB.
-* **Service Timeouts**: Defines `DefaultTimeoutStartSec` (15s) and `DefaultTimeoutStopSec` (10s) for services.
-* **File Descriptor Limits**: Increases `DefaultLimitNOFILE` for both system (2048:2097152) and user (1024:1048576) services.
-* **Time Synchronization**: Configures `systemd-timesyncd` with Cloudflare and Google NTP servers.
-* **ZRAM Generator**: Configures ZRAM with `zstd` or `lz4` compression, `ram` size, and `swap-priority=100`.
-* **PCI Latency Service**: Enables a systemd service to apply `pci-latency` script at boot.
-* **User Service Resource Delegation**: Delegates CPU, cpuset, IO, memory, and pids to user services.
+## udev (`usr/lib/udev/rules.d/`)
 
-### 🧹 Tmpfiles: Temporary File & THP Management
-Configurations for temporary file cleanup and Transparent Huge Page (THP) behavior.
-* **Coredump Retention**: Clears coredumps older than 3 days.
-* **THP Defragmentation**: Sets `transparent_hugepage/defrag` to `defer+madvise` for tcmalloc-using applications.
-* **THP Shrinker**: Configures `khugepaged/max_ptes_none` for Kernel 6.12+ to optimize THP memory usage.
+* **I/O scheduler** (`60-ioschedulers.rules`): для SATA SSD (`rotational=0`) назначается
+  `adios` (Adaptive Deadline I/O Scheduler, входит в linux-cachyos). HDD и NVMe в системе нет.
+* **SATA Link Power Management** (`50-sata.rules`): `max_performance` для SATA-хостов,
+  которые поддерживают смену политики (`link_power_management_supported=1`).
+* **NVIDIA Runtime PM** (`71-nvidia.rules`): `power/control=auto` при бинде драйвера
+  `nvidia`, `on` при отвязке.
+* **Права для аудио**: `/dev/hpet` → группа `audio`
+  (`40-hpet-permissions.rules`); `/dev/cpu_dma_latency` → `root:audio 0660`
+  (`99-cpu-dma-latency.rules`). `/dev/rtc0` намеренно не трогаем — systemd оставляет
+  группу `clock`.
 
-### ⚡️ Utility Scripts
-Bash and Lua scripts for system diagnostics, optimization, and administration.
-* **`cachyos-bugreport.sh`**: Generates a comprehensive system bug report including hardware, logs, and installed packages, with an option to upload. (Requires root)
-* **`dlss-swapper`**: Forces latest NVIDIA DLSS presets (SR, RR, FG) and updates DLLs via NGX.
-* **`dlss-swapper-dll`**: Forces latest NVIDIA DLSS presets (SR, RR, FG) but skips NGX updater.
-* **`kerver`**: Displays kernel version, x86_64 support, CPU config, and disk scheduler information.
-* **`paste-cachyos`**: Uploads file content or stdin to `https://paste.cachyos.org`.
-* **`pci-latency`**: Adjusts PCI latency timers for audio and other devices (sets sound cards to 80 cycles). (Requires root)
-* **`sbctl-batch-sign`**: Helps batch sign files for Secure Boot, excluding common Microsoft/Windows EFI, .mui, .dll, and grub files. (Requires root, incompatible with Limine)
+## sysctl (`usr/lib/sysctl.d/70-cachyos-settings.conf`)
+
+* `vm.swappiness = 150` — под ZRAM: анонимные страницы сжимаются в RAM, а не вытесняются из page cache
+* `vm.vfs_cache_pressure = 50`
+* `vm.dirty_bytes = 268435456`, `vm.dirty_background_bytes = 67108864`, `vm.dirty_writeback_centisecs = 1500`
+* `vm.page-cluster = 0`
+* `kernel.nmi_watchdog = 0`, `kernel.unprivileged_userns_clone = 1`
+* `kernel.printk = 3 3 3 3`, `kernel.kptr_restrict = 2`
+* `net.core.netdev_max_backlog = 4096`, `fs.file-max = 2097152`
+
+## modprobe (`usr/lib/modprobe.d/`)
+
+* **`blacklist.conf`** — чёрный список под это железо:
+  watchdog (`iTCO_wdt`, `wdat_wdt`), EDAC (`sb_edac`), служебные модули NVIDIA
+  (`i2c_nvidia_gpu`, `ucsi_ccg`, `mxm_wmi`), встроенный/HDMI-звук (`snd_hda_intel`,
+  `snd_seq*`), PS/2 (`psmouse`, `serio_raw`), KVM, FDD/LPT, SPI-доступ к BIOS-флешу,
+  `joydev`/`mousedev`/`mac_hid`/`pcspkr`/`gpio_ich`.
+* **`nvidia.conf`**: `NVreg_InitializeSystemMemoryAllocations=0`.
+* `nouveau` блэклистится пакетом `nvidia-utils`, здесь не дублируется.
+
+## systemd (`usr/lib/systemd/`)
+
+* `zram-generator.conf`: `compression-algorithm = zstd`, `zram-size = ram`, `swap-priority = 100`
+* `journald.conf.d/00-journal-size.conf`: `SystemMaxUse=50M`
+* `system.conf.d/00-timeout.conf` и `user.conf.d/00-timeout.conf`: 15s / 10s
+* `system.conf.d/10-limits.conf`: `DefaultLimitNOFILE=2048:2097152`;
+  `user.conf.d/10-limits.conf`: `1024:1048576`
+* `timesyncd.conf.d/10-timesyncd.conf`: `time.cloudflare.com` + fallback NTP
+* `user@.service.d/delegate.conf`: делегирование `cpu cpuset io memory pids`
+* `rtkit-daemon.service.d/override.conf`: `LogLevelMax=info`
+
+## tmpfiles (`usr/lib/tmpfiles.d/`)
+
+* `coredump.conf`: чистка coredump старше 3 дней
+* `thp.conf`: `transparent_hugepage/defrag = defer+madvise`
+* `thp-shrinker.conf`: `khugepaged/max_ptes_none = 409` (kernel 6.12+)
+
+## Прочее
+
+* `etc/security/limits.d/20-audio.conf`: `@audio - rtprio 99`, `@audio - nice -11`
+* `etc/debuginfod/cachyos.urls`: `https://debuginfod.cachyos.org`
+* `usr/lib/modules-load.d/ntsync.conf`: `ntsync` (Wine/Proton)
+* `usr/lib/NetworkManager/conf.d/dns.conf`: `dns=systemd-resolved`
+
+## Скрипты (`usr/bin/`)
+
+* **`cachyos-bugreport.sh`** — баг-репорт (root) с вычисткой персональных данных
+* **`kerver`** — версия ядра, x86_64-support, CPU-конфиг, планировщики
+* **`paste-cachyos`** — загрузка файла/stdin на `https://paste.cachyos.org`
+* **`sbctl-batch-sign`** — пакетная подпись файлов для Secure Boot (требует root)
+
+## Намеренно убрано
+
+Правила/файлы, не относящиеся к этому железу: Wi-Fi regdomain (`iw-set-regdomain`),
+управление питанием `snd-hda-intel`, `hdparm`-правила для HDD, `pci-latency`,
+GNOME/touchpad-настройки, AMD GPU, `game-performance`/`topmem`/`zink-run`/`dlss-swapper`.
+
+## Установка
+
+```sh
+makepkg -si     # собранный пакет mysettings
+```
+
+После обновления пакета убедитесь, что старые пользовательские копии
+(например, `/etc/modprobe.d/blacklist-driver.conf`) удалены — теперь всё содержится
+в пакете.
